@@ -1,4 +1,5 @@
 The coding language which i have choosen to do this project is spark and scala and basically, i have done all of the queries in "Spark SQL" .
+we have two json data files
 step 1: To read the json files : 
 
 val df= spark.read.json("y.json.gz")
