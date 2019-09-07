@@ -1,0 +1,64 @@
+The coding language which i have choosen to do this project is spark and scala and basically, i have done all of the queries in "Spark SQL" .
+step 1: To read the json files : 
+
+val df= spark.read.json("y.json.gz")
+val df1= spark.read.json("t.json.gz")
+step 2: Creating the temporary view of df as 'yesterday' and df1 as 'today'
+ df.createOrReplaceTempView("yesterday")
+ df1.createOrReplaceTempView("today")
+1. No of URLH which are overlapping.
+
+spark.sql("select count(distinct yesterday.URLH) as overlapped_URLHs from today inner join yesterday  where today.URLH=yesterday.URLH").show
+
+2
+. For all the URLH which are overlapping, calculate the price difference (wrt available_price) if there is any between yesterday's and today's crawls.
+ There might be duplicate URLHs in which case you can choose the first valid (with http_status 200) record.
+
+
+I have taken the price difference in the increasing order:
+I solved this problem in two parts ,in first part i have calculated the price difference for overlapped URLHs and then in second step i removes the duplicates .
+step 1:spark.sql("select ABS(today.available_price-yesterday.available_price)  price_difference , today.URLH,today.http_status as t_http,yesterday.http_status as y_http  from today inner join yesterday on today.URLH=yesterday.URLH ").show
+then store this into rit dataframe
+val rit=spark.sql("select ABS(today.available_price-yesterday.available_price)  price_difference , today.URLH,today.http_status as t_http,yesterday.http_status as y_http  from today inner join yesterday on today.URLH=yesterday.URLH ")
+then again make a temporary view of rit as harrit
+rit.createOrReplaceTempView("harrit")
+step 2: spark.sql("select price_difference from (select distinct(URLH), price_difference from harrit where (t_http=200 and y_http=200)) where price_difference <> 0.0 order by price_difference asc ").show
+
+
+3. No of Unique categories in both files.
+
+
+spark.sql("select count(distinct yesterday.category)  from today inner join yesterday  where today.category=yesterday.category").show
+
+4.
+ List of categories which is not overlapping.
+ spark.sql("select count(today.category) as unique_category from today full join yesterday on today.category=yesterday.category where  yesterday.category is null"
+).show
+
+
+5. Generate the stats with count for all taxonomies (taxonomy is concatenation of category and subcategory separated by " > ").
+
+Eg:
+Cat1 > Subcat1: 3500
+Cat1 > Subcat2: 2000
+Cat2 > Subcat3: 8900
+
+6. 
+in this what i have conclude from question is that the count is the count of taxonomy column .
+
+spark.sql("select concat(taxonomy,':',' ',count (taxonomy)) as taxonomies from (select concat(today.category, ' ','>',' ' ,today.subcategory) as taxonomy from today inner join yesterday on (today.category = yesterday.category and today.subcategory=yesterday.subcategory)) group by taxonomy ").show(100,false)
+
+6. Generate a new file where mrp is normalized.
+ If there is a 0 or a non-float value or the key doesn't exist, make it "NA".
+
+ val newDF=spark.sql("select  case when mrp like '%.%'  then mrp else replace(replace(mrp,mrp,'NA'),' ','NA') end as mrp from today " ).show
+Convert this newDF into RDD
+val new_rdd=sc.parallelize(newDF,100)
+then save the file using
+new_rdd.saveAsTextFile("C:/Users/dell/Downloads/mrpfile")
+
+
+ 
+
+
+
